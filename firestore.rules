@@ -1,0 +1,74 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if request.auth != null
+                    && request.auth.uid == userId
+                    && validNewUser();
+      allow update: if request.auth.uid == userId;
+      allow delete: if false;
+
+      match/businesses/{businessId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read: if isSignedIn();  // Or something stricter based on role
+        allow write: if request.auth != null && request.auth.uid == userId;
+
+      match /services/{serviceId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read: if isSignedIn();  // Or something stricter based on role
+        allow write: if request.auth != null && request.auth.uid == userId;
+    }
+}
+
+    }
+
+    match /merchants/{merchantId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isMerchant(merchantId);
+    }
+
+    match /services/{serviceId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isMerchant(request.resource.data.merchantId);
+    }
+
+    match /bookings/{bookingId} {
+      allow create: if isCustomer() 
+                    && request.resource.data.customerId == request.auth.uid
+                    && validBooking(request.resource.data);
+      allow read: if isCustomer() && resource.data.customerId == request.auth.uid
+                  || isMerchant(resource.data.merchantId);
+      allow update: if isMerchant(resource.data.merchantId)
+                    || (isCustomer() && resource.data.customerId == request.auth.uid
+                        && request.resource.data.status == 'cancelled');
+      allow delete: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isCustomer() {
+      return isSignedIn()
+             && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'customer';
+    }
+    function isMerchant(merchantId) {
+      return isSignedIn()
+             && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'merchant'
+             && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.merchantId == merchantId;
+    }
+    function validNewUser() {
+      return request.resource.data.keys().hasAll(['name','email','role'])
+             && (request.resource.data.role in ['customer','merchant'])
+             && request.resource.data.name is string
+             && request.resource.data.email is string;
+    }
+    function validBooking(data) {
+      return data.keys().hasAll(['customerId','serviceId','slotTimestamp','status','qrCodeToken','createdAt'])
+             && data.customerId == request.auth.uid
+             && data.status == 'pending'
+             && data.createdAt == request.time;
+    }
+  }
+}
