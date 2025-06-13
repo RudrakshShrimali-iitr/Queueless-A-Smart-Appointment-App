@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'home_content.dart'; // We'll create this next
+import 'package:qless_app/customer%20side/Profile_page.dart';
+import 'package:qless_app/models/service.dart';
+import 'home_content.dart';
+import 'Booking_page.dart'; // New bookings page
 
 class CustomerHomePage extends StatefulWidget {
   @override
@@ -8,41 +11,46 @@ class CustomerHomePage extends StatefulWidget {
 
 class _CustomerHomePageState extends State<CustomerHomePage>
     with TickerProviderStateMixin {
-    
-      String _selectedCategory = 'All';
-String _selectedFilter = 'Recent';
-
-void _onCategoryChanged(String newCategory) {
-  setState(() {
-    _selectedCategory = newCategory;
-  });
-}
-
-void _onFilterChanged(String newFilter) {
-  setState(() {
-    _selectedFilter = newFilter;
-  });
-}
-
+  String _selectedCategory = 'All';
+  String _selectedFilter = 'Recent';
   int _currentIndex = 0;
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
+  List<ServiceModel> _bookedServices = [];
+
+  void _onBookService(ServiceModel service) {
+    setState(() {
+      _bookedServices.add(service);
+    });
+    // Optionally switch to Bookings tab automatically after booking:
+    // setState(() {
+    //   _currentIndex = 1;
+    // });
+  }
+
+  void _onCategoryChanged(String newCategory) {
+    setState(() {
+      _selectedCategory = newCategory;
+    });
+  }
+
+  void _onFilterChanged(String newFilter) {
+    setState(() {
+      _selectedFilter = newFilter;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
-     
     _animationController = AnimationController(
       duration: Duration(milliseconds: 1200),
       vsync: this,
     );
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
     _animationController.forward();
   }
 
@@ -60,10 +68,7 @@ void _onFilterChanged(String newFilter) {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF667eea).withOpacity(0.1),
-              Colors.white,
-            ],
+            colors: [Color(0xFF667eea).withOpacity(0.1), Colors.white],
           ),
         ),
         child: SafeArea(
@@ -81,43 +86,26 @@ void _onFilterChanged(String newFilter) {
     switch (_currentIndex) {
       case 0:
         return HomeContent(
-           selectedCategory: _selectedCategory,
-    selectedFilter: _selectedFilter,
-    onCategoryChanged: _onCategoryChanged,
-    onFilterChanged: _onFilterChanged,
-        ); // Extracted to separate component
-      case 1:
-        return _buildBookingsPage();
-      case 2:
-        return _buildWalletPage();
-      case 3:
-        return _buildProfilePage();
-      default:
-        return HomeContent(
-           selectedCategory: _selectedCategory,
-    selectedFilter: _selectedFilter,
-    onCategoryChanged: _onCategoryChanged,
-    onFilterChanged: _onFilterChanged,
+          selectedCategory: _selectedCategory,
+          onCategoryChanged: _onCategoryChanged,
+          selectedFilter: _selectedFilter,
+          onFilterChanged: _onFilterChanged,
+          onBookService: _onBookService,
+          bookedServices: _bookedServices,
         );
+      case 1:
+        return BookingsPage(
+          bookings: _bookedServices, // past or completed bookings
+          upcomingBookings:
+              _bookedServices, // future bookings (or filter separately)
+        );
+      case 2:
+        return Center(child: Text("Wallet Feature Coming Soon"));
+      case 3:
+        return ProfilePage();
+      default:
+        return Center(child: Text("Coming Soon"));
     }
-  }
-
-  Widget _buildBookingsPage() {
-    return Center(
-      child: Text("Bookings Page"),
-    );
-  }
-
-  Widget _buildWalletPage() {
-    return Center(
-      child: Text("Wallet Page"),
-    );
-  }
-
-  Widget _buildProfilePage() {
-    return Center(
-      child: Text("Profile Page"),
-    );
   }
 
   Widget _buildBottomNavigation() {

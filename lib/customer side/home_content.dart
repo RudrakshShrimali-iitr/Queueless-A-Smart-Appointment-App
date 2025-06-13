@@ -1,11 +1,9 @@
-// ignore_for_file: avoid_print
-
 import 'package:flutter/material.dart';
 import 'package:qless_app/models/service.dart';
 import 'package:qless_app/services/firestore_repository.dart';
+
 import 'home_header.dart';
 import 'search_section.dart';
-import 'featured_merchant.dart';
 import 'service_categories.dart';
 import 'service_list.dart';
 import 'upcoming_booking.dart';
@@ -15,6 +13,8 @@ class HomeContent extends StatefulWidget {
   final String selectedFilter;
   final ValueChanged<String> onCategoryChanged;
   final ValueChanged<String> onFilterChanged;
+  final Function(ServiceModel) onBookService;
+  final List<ServiceModel> bookedServices;
 
   const HomeContent({
     Key? key,
@@ -22,6 +22,8 @@ class HomeContent extends StatefulWidget {
     required this.selectedFilter,
     required this.onCategoryChanged,
     required this.onFilterChanged,
+    required this.onBookService,
+    required this.bookedServices,
   }) : super(key: key);
 
   @override
@@ -32,9 +34,10 @@ class _HomeContentState extends State<HomeContent> {
   late Future<List<ServiceModel>> _futureServices;
   List<ServiceModel> _allServices = [];
   String? _error;
-  
+  String _searchQuery = '';
+
   final List<String> filters = ['Recent', 'Popular', 'Nearby'];
-  final List<String> categories = ['All', 'Salon', 'Clinic', 'Auto-shop'];
+  final List<String> categories = ['All', 'Salon', 'Clinic', 'Spa', 'Fitness'];
 
   @override
   void initState() {
@@ -45,74 +48,109 @@ class _HomeContentState extends State<HomeContent> {
   void _initializeServices() {
     _futureServices = FirestoreRepository().fetchAllServices();
     _futureServices.then((services) {
-      print("🔁 Loaded services: ${services.length}");
-      setState(() {
-        _allServices = services;
-      });
+      setState(() => _allServices = services);
     }).catchError((e) {
-      print("❌ Error loading services: $e");
-      setState(() {
-        _error = e.toString();
-      });
+      setState(() => _error = e.toString());
     });
   }
 
   void _bookService(ServiceModel service) {
-    if (!mounted) return;
+    // Call parent's callback to update bookings list
+    widget.onBookService(service);
 
-    String serviceName = service.serviceName;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("Booking confirmed for $serviceName!"),
-        backgroundColor: Color(0xFF667eea),
+        content: Text("Booking confirmed for ${service.serviceName}!"),
+        backgroundColor: const Color(0xFF667eea),
       ),
     );
   }
 
-  Widget _buildServicesContent() {
-    if (_error != null) {
-      return Text('Error loading services: $_error');
+  Widget _upcomingBookingSection() {
+    if (widget.bookedServices.isNotEmpty) {
+      // Show the latest booked service as upcoming booking
+      final latestBooking = widget.bookedServices.last;
+      return UpcomingBookingCard(
+        serviceName: latestBooking.serviceName,
+        salonName: latestBooking.businessName,
+        bookingTime: 'Today, 2:30 PM', // You can extend this to real data later
+      );
+    } else {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: Colors.grey.shade300,
+              style: BorderStyle.solid,
+              width: 1.5),
+          color: Colors.grey.shade100,
+        ),
+        child: Text(
+          'No upcoming bookings',
+          style: TextStyle(
+            fontSize: 16,
+            color: Colors.grey.shade600,
+          ),
+        ),
+      );
     }
-    
-    if (_allServices.isEmpty) {
-      return Center(child: CircularProgressIndicator());
-    }
-    
-    return ServicesList(
-      services: _allServices,
-      onBookService: _bookService,
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          HomeHeader(),
-          SizedBox(height: 20),
-          UpcomingBookingCard(),
-          SizedBox(height: 25),
-          SearchSection(
-            filters: filters,
-            selectedFilter: widget.selectedFilter,
-            onFilterChanged: widget.onFilterChanged,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                HomeHeader(),
+                const SizedBox(height: 20),
+
+                _upcomingBookingSection(),
+                const SizedBox(height: 25),
+
+                SearchSection(
+                  filters: filters,
+                  selectedFilter: widget.selectedFilter,
+                  onFilterChanged: widget.onFilterChanged,
+                  onSearchChanged: (query) {
+                    setState(() => _searchQuery = query);
+                  },
+                ),
+
+                const SizedBox(height: 25),
+
+                ServiceCategories(
+                  categories: categories,
+                  selectedCategory: widget.selectedCategory,
+                  onCategoryChanged: widget.onCategoryChanged,
+                ),
+
+                const SizedBox(height: 25),
+
+                if (_error != null)
+                  Text('Error loading services: $_error')
+                else if (_allServices.isEmpty)
+                  const Center(child: CircularProgressIndicator())
+                else
+                  ServicesList(
+                    services: _allServices,
+                    onBookService: _bookService,
+                    searchQuery: _searchQuery, bookedServices: [],
+                  ),
+
+                const SizedBox(height: 100),
+              ],
+            ),
           ),
-          SizedBox(height: 25),
-          FeaturedMerchants(),
-          SizedBox(height: 25),
-          ServiceCategories(
-            categories: categories,
-            selectedCategory: widget.selectedCategory,
-            onCategoryChanged: widget.onCategoryChanged,
-          ),
-          SizedBox(height: 25),
-          _buildServicesContent(),
-          SizedBox(height: 100),
-        ],
-      ),
+        );
+      },
     );
   }
 }

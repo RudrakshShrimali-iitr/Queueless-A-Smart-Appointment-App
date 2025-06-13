@@ -17,9 +17,11 @@ class _BusinessSetupFormState extends State<BusinessSetupForm> {
   final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
 
-  String _selectedCategory = 'Salon & Spa';
+  String _selectedCategory = 'Salon';
   final List<String> _categories = [
-    'Salon & Spa',
+    'Salon',
+    'Spa',
+    'Fitness',
     'Healthcare',
     'Restaurant',
     'Retail',
@@ -348,7 +350,9 @@ class _BusinessSetupFormState extends State<BusinessSetupForm> {
 
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => MerchantDashboard(businessId: docRef.id)),
+          MaterialPageRoute(
+            builder: (context) => MerchantDashboard(businessId: docRef.id),
+          ),
         );
       } catch (e) {
         ScaffoldMessenger.of(

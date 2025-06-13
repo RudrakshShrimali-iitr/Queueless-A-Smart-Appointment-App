@@ -85,9 +85,11 @@ class _AuthFormState extends State<AuthForm> {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your email';
                   }
-                 if (!RegExp(r'^[\w\.-]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-  return 'Please enter a valid email';
-}
+                  if (!RegExp(
+                    r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
+                  ).hasMatch(value)) {
+                    return 'Please enter a valid email';
+                  }
                   return null;
                 },
               ),
@@ -101,8 +103,8 @@ class _AuthFormState extends State<AuthForm> {
                   icon: Icon(
                     isPasswordVisible ? Icons.visibility : Icons.visibility_off,
                   ),
-                  onPressed: () => setState(
-                      () => isPasswordVisible = !isPasswordVisible),
+                  onPressed: () =>
+                      setState(() => isPasswordVisible = !isPasswordVisible),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -161,79 +163,76 @@ class _AuthFormState extends State<AuthForm> {
       },
       child: Text(
         'Forgot Password?',
-        style: TextStyle(
-            color: Color(0xFF667eea), fontWeight: FontWeight.w500),
+        style: TextStyle(color: Color(0xFF667eea), fontWeight: FontWeight.w500),
       ),
     );
   }
 
- void _handleSubmission() async {
-  final email = _emailController.text.trim();
-  final password = _passwordController.text.trim();
-  final name = _nameController.text.trim();
-  final role = selectedRole;
+  void _handleSubmission() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final name = _nameController.text.trim();
+    final role = selectedRole;
 
-  try {
-    if (widget.isLogin) {
-      // LOGIN FLOW
-      UserCredential userCred = await FirebaseAuth.instance
-          .signInWithEmailAndPassword(email: email, password: password);
+    try {
+      if (widget.isLogin) {
+        // LOGIN FLOW
+        UserCredential userCred = await FirebaseAuth.instance
+            .signInWithEmailAndPassword(email: email, password: password);
 
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userCred.user!.uid)
-          .get();
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userCred.user!.uid)
+            .get();
 
-      final storedRole = userDoc.get('role') as String;
+        final storedRole = userDoc.get('role') as String;
 
-      if (storedRole == 'customer') {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => CustomerHomePage()),
-        );
+        if (storedRole == 'customer') {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => CustomerHomePage()),
+          );
+        } else {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => BusinessSetupForm()),
+          );
+        }
       } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => BusinessSetupForm ()),
+        UserCredential cred = await FirebaseAuth.instance
+            .createUserWithEmailAndPassword(email: email, password: password);
+
+        // Store user data in Firestore
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(cred.user!.uid)
+            .set({
+              'name': name,
+              'email': email,
+              'role': role,
+              'createdAt': Timestamp.now(),
+            });
+
+        // Show success message and go to login screen
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sign-up successful! Please log in.'),
+            backgroundColor: Colors.green,
+          ),
         );
+
+        Future.delayed(Duration(seconds: 2), () {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => AuthScreen(isLogin: true)),
+          );
+        });
       }
-    } else {
-      
-      UserCredential cred = await FirebaseAuth.instance
-          .createUserWithEmailAndPassword(email: email, password: password);
-
-      // Store user data in Firestore
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(cred.user!.uid)
-          .set({
-        'name': name,
-        'email': email,
-        'role': role,
-        'createdAt': Timestamp.now(),
-      });
-
-      // Show success message and go to login screen
+    } on FirebaseAuthException catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Sign-up successful! Please log in.'),
-          backgroundColor: Colors.green,
-        ),
+        SnackBar(content: Text(e.message ?? 'Authentication error')),
       );
-
-      Future.delayed(Duration(seconds: 2), () {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => AuthScreen(isLogin: true)),
-        );
-      });
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
     }
-  } on FirebaseAuthException catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(e.message ?? 'Authentication error')),
-    );
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Error: ${e.toString()}')),
-    );
   }
 }
-}
-

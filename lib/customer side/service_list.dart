@@ -1,21 +1,40 @@
 import 'package:flutter/material.dart';
+import 'package:qless_app/customer side/upcoming_booking.dart';
 import 'package:qless_app/models/service.dart';
 
 class ServicesList extends StatelessWidget {
   final List<ServiceModel> services;
-  final Function(ServiceModel) onBookService;
+  final String searchQuery;
+  final List<ServiceModel> bookedServices;
+  final void Function(ServiceModel service) onBookService;
 
   const ServicesList({
     Key? key,
     required this.services,
+    required this.searchQuery,
+    required this.bookedServices,
     required this.onBookService,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final filteredServices = services.where((service) {
+      final query = searchQuery.toLowerCase();
+      return service.serviceName.toLowerCase().contains(query);
+    }).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (bookedServices.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: UpcomingBookingCard(
+              serviceName: bookedServices.last.serviceName,
+              salonName: bookedServices.last.businessName,
+              bookingTime: 'Today, 2:30 PM',
+            ),
+          ),
         Text(
           'Available Services',
           style: TextStyle(
@@ -24,15 +43,31 @@ class ServicesList extends StatelessWidget {
             color: Color(0xFF2D3748),
           ),
         ),
-        SizedBox(height: 15),
+        const SizedBox(height: 15),
+        if (filteredServices.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Text(
+              'No services match your search.',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ),
         ListView.builder(
           shrinkWrap: true,
           physics: NeverScrollableScrollPhysics(),
-          itemCount: services.length,
-          itemBuilder: (context, index) => ServiceCard(
-            service: services[index],
-            onBook: () => onBookService(services[index]),
-          ),
+          itemCount: filteredServices.length,
+          itemBuilder: (context, index) {
+            final service = filteredServices[index];
+            return ServiceCard(
+              service: service,
+              onBook: () {
+                onBookService(service);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('${service.serviceName} booked successfully!')),
+                );
+              },
+            );
+          },
         ),
       ],
     );
@@ -43,11 +78,8 @@ class ServiceCard extends StatelessWidget {
   final ServiceModel service;
   final VoidCallback onBook;
 
-  const ServiceCard({
-    Key? key,
-    required this.service,
-    required this.onBook,
-  }) : super(key: key);
+  const ServiceCard({Key? key, required this.service, required this.onBook})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -67,15 +99,10 @@ class ServiceCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          ServiceIcon(),
+          ServiceIcon(category: service.serviceName),
           const SizedBox(width: 16),
-          Expanded(
-            child: ServiceDetails(service: service),
-          ),
-          ServiceActions(
-            price: service.price,
-            onBook: onBook,
-          ),
+          Expanded(child: ServiceDetails(service: service)),
+          ServiceActions(price: service.price, onBook: onBook),
         ],
       ),
     );
@@ -83,20 +110,41 @@ class ServiceCard extends StatelessWidget {
 }
 
 class ServiceIcon extends StatelessWidget {
-  const ServiceIcon({Key? key}) : super(key: key);
+  final String category;
+
+  const ServiceIcon({Key? key, required this.category}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    String emoji = getEmojiForCategory(category);
+
     return Container(
       width: 60,
       height: 60,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF667eea), Color(0xFF764ba2)],
-        ),
+        color: Colors.purple[100],
         borderRadius: BorderRadius.circular(12),
       ),
+      child: Text(emoji, style: const TextStyle(fontSize: 28)),
     );
+  }
+
+  String getEmojiForCategory(String category) {
+    switch (category.toLowerCase()) {
+      case 'salon':
+        return '💇‍♀️';
+      case 'healthcare':
+        return '🩺';
+      case 'spa':
+        return '💆‍♀️';
+      case 'fitness':
+        return '🏋️‍♂️';
+      case 'massage':
+        return '💆';
+      default:
+        return '✨';
+    }
   }
 }
 
@@ -157,11 +205,8 @@ class ServiceActions extends StatelessWidget {
   final double price;
   final VoidCallback onBook;
 
-  const ServiceActions({
-    Key? key,
-    required this.price,
-    required this.onBook,
-  }) : super(key: key);
+  const ServiceActions({Key? key, required this.price, required this.onBook})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -182,10 +227,7 @@ class ServiceActions extends StatelessWidget {
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF667eea),
             foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),

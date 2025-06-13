@@ -1,6 +1,17 @@
 import 'package:flutter/material.dart';
 
 class UpcomingBookingCard extends StatelessWidget {
+  final String serviceName;
+  final String salonName;
+  final String bookingTime;
+
+  const UpcomingBookingCard({
+    super.key,
+    required this.serviceName,
+    required this.salonName,
+    required this.bookingTime,
+  });
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -69,7 +80,7 @@ class UpcomingBookingCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Hair Cut & Styling',
+                      serviceName,
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
@@ -78,7 +89,7 @@ class UpcomingBookingCard extends StatelessWidget {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'StyleCraft Salon',
+                      salonName,
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.8),
                         fontSize: 14,
@@ -86,7 +97,7 @@ class UpcomingBookingCard extends StatelessWidget {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'Today, 2:30 PM',
+                      'Time: $bookingTime',
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.8),
                         fontSize: 14,

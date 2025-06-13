@@ -1,0 +1,16 @@
+# Handle line endings automatically based on OS
+* text=auto
+
+# Ensure Dart, YAML, JSON, and other source code files use LF
+*.dart text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.js text eol=lf
+*.ts text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+
+# OS/platform-specific generated files can be ignored or have CRLF if needed
+*.bat text eol=crlf
+*.cmd text eol=crlf

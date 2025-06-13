@@ -4,12 +4,14 @@ class SearchSection extends StatelessWidget {
   final List<String> filters;
   final String selectedFilter;
   final ValueChanged<String> onFilterChanged;
+   final ValueChanged<String> onSearchChanged;
 
   const SearchSection({
     Key? key,
     required this.filters,
     required this.selectedFilter,
     required this.onFilterChanged,
+    required this.onSearchChanged,
   }) : super(key: key);
 
   @override
@@ -21,7 +23,10 @@ class SearchSection extends StatelessWidget {
         SizedBox(height: 15),
         Row(
           children: [
-            Expanded(child: SearchField()),
+            Expanded(
+              child: SearchField(
+            onChanged: onSearchChanged,
+            )),
             SizedBox(width: 12),
             FilterButton(
               filters: filters,
@@ -53,7 +58,9 @@ class SectionTitle extends StatelessWidget {
 }
 
 class SearchField extends StatelessWidget {
-  const SearchField({Key? key}) : super(key: key);
+  final ValueChanged<String> onChanged;
+
+  const SearchField({Key? key, required this.onChanged}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -70,6 +77,7 @@ class SearchField extends StatelessWidget {
         ],
       ),
       child: TextField(
+        onChanged: onChanged,
         decoration: InputDecoration(
           hintText: 'Find salons, clinics, auto-shops...',
           prefixIcon: Icon(Icons.search, color: Colors.grey[400]),
@@ -84,6 +92,7 @@ class SearchField extends StatelessWidget {
 class FilterButton extends StatelessWidget {
   final List<String> filters;
   final ValueChanged<String> onFilterChanged;
+
 
   const FilterButton({
     Key? key,
