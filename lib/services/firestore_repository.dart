@@ -1,5 +1,3 @@
-
-
 // ignore_for_file: avoid_print
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -12,7 +10,6 @@ class FirestoreRepository {
   Future<List<ServiceModel>> fetchAllServices() async {
     final allServices = <ServiceModel>[];
 
-   
     final merchantSnap = await _db
         .collection('users')
         .where('role', isEqualTo: 'merchant')
@@ -29,20 +26,24 @@ class FirestoreRepository {
           .get();
 
       for (final bizDoc in bizSnap.docs) {
-        final bizData = bizDoc.data();
+        final bizData = bizDoc.data() as Map<String, dynamic>;
         final businessName = bizData['businessName'] as String? ?? 'Unknown';
 
         // 3) Read the services field (expected to be an array)
-        if (bizData['services'] is List) {
-          final servicesList = List<Map<String, dynamic>>.from(bizData['services']);
+        if (bizData.containsKey('services') && bizData['services'] is List) {
+          final servicesList = (bizData['services'] as List).whereType<Map<String, dynamic>>().toList();
 
           for (final rawService in servicesList) {
             allServices.add(
-              ServiceModel.fromMap(rawService, businessName),
+              ServiceModel.fromMap(
+                rawService,
+                 businessName: businessName,
+                  merchantId: userId,
+                ),
             );
           }
         } else {
-          print(" No services array found in business: $businessName (${bizDoc.id})");
+          print("No services array found in business: $businessName (${bizDoc.id})");
         }
       }
     }

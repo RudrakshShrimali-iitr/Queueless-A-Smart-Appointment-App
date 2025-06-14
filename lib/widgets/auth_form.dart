@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:qless_app/bloc/user/user_bloc.dart';
+import 'package:qless_app/bloc/user/user_event.dart';
 import 'package:qless_app/merchant%20side/business_form.dart';
+import 'package:qless_app/merchant%20side/merchant_dashboard.dart'; // Add this import
 import 'package:qless_app/customer side/customer_page.dart';
 import 'package:qless_app/screens/auth_screen.dart';
 import '../services/auth_service.dart';
@@ -180,38 +184,84 @@ class _AuthFormState extends State<AuthForm> {
         UserCredential userCred = await FirebaseAuth.instance
             .signInWithEmailAndPassword(email: email, password: password);
 
+        final uid = userCred.user!.uid;
+
         DocumentSnapshot userDoc = await FirebaseFirestore.instance
             .collection('users')
-            .doc(userCred.user!.uid)
+            .doc(uid)
             .get();
 
-        final storedRole = userDoc.get('role') as String;
+        final userData = userDoc.data() as Map<String, dynamic>;
+        final storedRole = userData['role'] as String;
 
         if (storedRole == 'customer') {
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => CustomerHomePage()),
+            MaterialPageRoute(
+              builder: (_) => BlocProvider(
+                create: (_) => UserBloc()..add(LoadUser(uid)),
+                child: CustomerHomePage(),
+              ),
+            ),
           );
-        } else {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => BusinessSetupForm()),
-          );
+        } else if (storedRole == 'merchant') {
+          // Check if businessId exists
+          if (userData.containsKey('businessId') &&
+              userData['businessId'] != null) {
+            final businessId = userData['businessId'];
+
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) =>
+                    MerchantDashboard(merchantId: uid, businessId: businessId),
+              ),
+            );
+          } else {
+            // Try fetching business from subcollection as fallback
+            final businessSnap = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(uid)
+                .collection('businesses')
+                .get();
+
+            if (businessSnap.docs.isNotEmpty) {
+              final businessId = businessSnap.docs.first.id;
+
+              // Save businessId in main user doc for faster future access
+              await FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(uid)
+                  .update({'businessId': businessId});
+
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (_) => MerchantDashboard(
+                    merchantId: uid,
+                    businessId: businessId,
+                  ),
+                ),
+              );
+            } else {
+              // No business found, go to setup
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => BusinessSetupForm()),
+              );
+            }
+          }
         }
       } else {
+        // SIGNUP FLOW
         UserCredential cred = await FirebaseAuth.instance
             .createUserWithEmailAndPassword(email: email, password: password);
 
-        // Store user data in Firestore
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(cred.user!.uid)
-            .set({
-              'name': name,
-              'email': email,
-              'role': role,
-              'createdAt': Timestamp.now(),
-            });
+        final uid = cred.user!.uid;
 
-        // Show success message and go to login screen
+        await FirebaseFirestore.instance.collection('users').doc(uid).set({
+          'name': name,
+          'email': email,
+          'role': role,
+          'createdAt': Timestamp.now(),
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Sign-up successful! Please log in.'),
@@ -229,10 +279,13 @@ class _AuthFormState extends State<AuthForm> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.message ?? 'Authentication error')),
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('Unknown error: $e');
+      print('Stack trace: $stackTrace');
+
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 }

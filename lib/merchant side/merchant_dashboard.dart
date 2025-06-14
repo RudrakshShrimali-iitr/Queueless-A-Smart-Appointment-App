@@ -1,17 +1,19 @@
 import 'dart:developer';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:qless_app/bloc/booking/booking_bloc.dart';
+import 'package:qless_app/bloc/booking/booking_event.dart';
+import 'package:qless_app/bloc/booking/booking_state.dart';
 import 'package:qless_app/merchant%20side/business_form.dart';
 import 'dashboard_content.dart';
 import 'service.dart';
 
 class MerchantDashboard extends StatefulWidget {
   final String businessId;
-  const MerchantDashboard({Key? key, required this.businessId})
-    : super(key: key);
+  final String merchantId;
+  const MerchantDashboard({Key? key, required this.businessId, required this.merchantId}) : super(key: key);
 
   @override
   State<MerchantDashboard> createState() => _MerchantDashboardState();
@@ -28,6 +30,8 @@ class _MerchantDashboardState extends State<MerchantDashboard> {
   void initState() {
     super.initState();
     _loadBusinessIdAndServices();
+    // Initialize booking data
+    context.read<BookingBloc>().add(LoadBookings(widget.businessId));
   }
 
   Future<void> _loadBusinessIdAndServices() async {
@@ -71,12 +75,21 @@ class _MerchantDashboardState extends State<MerchantDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: Colors.grey[50],
-      appBar: _buildAppBar(),
-      body: _buildBody(),
-      bottomNavigationBar: _buildBottomNavBar(),
+    return BlocListener<BookingBloc, BookingState>(
+      listener: (context, state) {
+        if (state is BookingError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message)),
+          );
+        }
+      },
+      child: Scaffold(
+        key: _scaffoldKey,
+        backgroundColor: Colors.grey[50],
+        appBar: _buildAppBar(),
+        body: _buildBody(),
+        bottomNavigationBar: _buildBottomNavBar(),
+      ),
     );
   }
 
@@ -212,23 +225,38 @@ class _MerchantDashboardState extends State<MerchantDashboard> {
   }
 
   Widget _buildBody() {
-    switch (_selectedIndex) {
-      case 0:
-        return DashboardContent(businessName: _businessName);
-      case 1:
-        return DashboardContent.bookingsPage();
-      case 2:
-        return DashboardContent.queuePage();
-      case 3:
-        return MerchantServices(
-          businessId: _businessId,
-          services: _services,
-          onServicesChanged: _refreshServices,
-        );
-      default:
-        return DashboardContent(businessName: _businessName);
-    }
+    return BlocBuilder<BookingBloc, BookingState>(
+      builder: (context, state) {
+        switch (_selectedIndex) {
+          case 0:
+            return DashboardContent(
+              businessName: _businessName,
+              bookings: state is BookingLoaded ? state.bookings : [], initialBookings: [],
+            );
+          case 1:
+            return DashboardContent.bookingsPage(
+              bookings: state is BookingLoaded ? state.bookings : [], initialBookings: [],
+            );
+          case 2:
+            return DashboardContent.queuePage(
+              bookings: state is BookingLoaded ? state.bookings : [], initialBookings: [],
+            );
+          case 3:
+            return MerchantServices(
+              businessId: _businessId,
+              services: _services,
+              onServicesChanged: _refreshServices,
+            );
+          default:
+            return DashboardContent(
+              businessName: _businessName,
+              bookings: state is BookingLoaded ? state.bookings : [], initialBookings: [],
+            );
+        }
+      },
+    );
   }
+
 
   void _refreshServices() {
     _fetchServices();

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:qless_app/customer%20side/Profile_page.dart';
+import 'package:qless_app/customer%20side/profile_page.dart';
 import 'package:qless_app/models/service.dart';
 import 'home_content.dart';
 import 'Booking_page.dart'; // New bookings page

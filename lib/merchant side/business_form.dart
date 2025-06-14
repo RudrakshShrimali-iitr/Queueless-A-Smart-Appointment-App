@@ -351,7 +351,8 @@ class _BusinessSetupFormState extends State<BusinessSetupForm> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => MerchantDashboard(businessId: docRef.id),
+            builder: (context) =>
+                MerchantDashboard(businessId: docRef.id, merchantId: ''),
           ),
         );
       } catch (e) {

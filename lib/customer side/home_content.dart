@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:qless_app/models/service.dart';
 import 'package:qless_app/services/firestore_repository.dart';
@@ -54,17 +56,53 @@ class _HomeContentState extends State<HomeContent> {
     });
   }
 
-  void _bookService(ServiceModel service) {
-    // Call parent's callback to update bookings list
+  void _bookService(ServiceModel service) async {
+  final user = FirebaseAuth.instance.currentUser;
+
+  if (user != null) {
+    final userData = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+
+    final bookingId = DateTime.now().millisecondsSinceEpoch.toString();
+
+    final bookingData = {
+      'bookingId': bookingId,
+      'serviceName': service.serviceName,
+      'businessId': service.businessId,
+      'businessName': service.businessName,
+      'customerId': user.uid,
+      'customerName': userData['fullName'],
+      'customerEmail': user.email,
+      'price': service.price,
+      'bookingTime': DateTime.now().toIso8601String(),
+      'isConfirmed': false,
+    };
+
+    await FirebaseFirestore.instance
+        .collection('bookings')
+        .doc(bookingId)
+        .set(bookingData);
+
+    // Optionally notify parent
     widget.onBookService(service);
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("Booking confirmed for ${service.serviceName}!"),
+        content: Text("Booking created for ${service.serviceName}. Waiting for confirmation."),
         backgroundColor: const Color(0xFF667eea),
       ),
     );
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("You must be logged in to book."),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
+}
 
   Widget _upcomingBookingSection() {
     if (widget.bookedServices.isNotEmpty) {

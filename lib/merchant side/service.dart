@@ -200,13 +200,10 @@ class _MerchantServicesState extends State<MerchantServices> {
     });
   }
 
-  
-
   Future<void> _saveNewService(Service newService) async {
     final userId = FirebaseAuth.instance.currentUser!.uid;
 
     try {
-      
       _showLoadingDialog();
 
       // Write to Firestore
@@ -218,10 +215,8 @@ class _MerchantServicesState extends State<MerchantServices> {
           .collection('services')
           .add(newService.toMap());
 
-     
       Navigator.of(context).pop();
 
-     
       widget.onServicesChanged();
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -262,10 +257,8 @@ class _MerchantServicesState extends State<MerchantServices> {
           .doc(serviceId)
           .update(updatedService.toMap());
 
-      
       Navigator.of(context).pop();
 
-   
       widget.onServicesChanged();
 
       ScaffoldMessenger.of(context).showSnackBar(

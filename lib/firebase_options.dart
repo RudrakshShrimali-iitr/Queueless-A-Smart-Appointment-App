@@ -1,8 +1,6 @@
-
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
-
 
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
@@ -14,23 +12,14 @@ class DefaultFirebaseOptions {
         return android;
       case TargetPlatform.iOS:
         throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
+          'DefaultFirebaseOptions have not been configured for ios – '
+          're-run FlutterFire CLI to add them.',
         );
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
       case TargetPlatform.linux:
         throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for linux - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
+          'DefaultFirebaseOptions are not supported for this desktop platform.',
         );
       default:
         throw UnsupportedError(
@@ -41,20 +30,25 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyBAgTopvx0YZ7YLL628MFKCjlXP1H9G0f0',
-    appId: '1:341515049668:web:e03a5875c9257f49e20791',
-    messagingSenderId: '341515049668',
-    projectId: 'queueless-22e40',
     authDomain: 'queueless-22e40.firebaseapp.com',
+    projectId: 'queueless-22e40',
     storageBucket: 'queueless-22e40.firebasestorage.app',
+    messagingSenderId: '341515049668',
+    appId: '1:341515049668:web:e03a5875c9257f49e20791',
     measurementId: 'G-0B4V08JS3Q',
+
+    // ← Add your RTDB URL here:
+    databaseURL: 'https://queueless-22e40-default-rtdb.firebaseio.com',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAPznDTS3wRifXqnrYeT3UyX0DuDDhtV-g',
-    appId: '1:341515049668:android:f7b28f42c7c0a553e20791',
-    messagingSenderId: '341515049668',
     projectId: 'queueless-22e40',
     storageBucket: 'queueless-22e40.firebasestorage.app',
-  );
+    messagingSenderId: '341515049668',
+    appId: '1:341515049668:android:f7b28f42c7c0a553e20791',
 
+    // ← And here too:
+    databaseURL: 'https://queueless-22e40-default-rtdb.firebaseio.com',
+  );
 }

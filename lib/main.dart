@@ -2,7 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:qless_app/bloc/booking/booking_bloc.dart';
 import 'package:qless_app/merchant%20side/merchant_dashboard.dart';
+import 'package:qless_app/services/booking_service.dart';
 import 'merchant side/business_form.dart';
 import 'package:qless_app/customer side/customer_page.dart';
 import 'firebase_options.dart';
@@ -10,13 +13,23 @@ import 'screens/auth_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-  await FirebaseAuth.instance.setSettings(
-    appVerificationDisabledForTesting: true,
+  WidgetsFlutterBinding.ensureInitialized(); // 👈 required before Firebase
+  await Firebase.initializeApp(
+    options:
+        DefaultFirebaseOptions.currentPlatform, // 👈 from firebase_options.dart
   );
-  runApp(QueueLessApp());
+
+  runApp(
+    MultiBlocProvider(
+      providers: [
+        BlocProvider<BookingBloc>(
+          create: (context) => BookingBloc(bookingService: BookingService()),
+        ),
+        // Add other providers if needed
+      ],
+      child: QueueLessApp(),
+    ),
+  );
 }
 
 class QueueLessApp extends StatelessWidget {
@@ -30,3 +43,4 @@ class QueueLessApp extends StatelessWidget {
     );
   }
 }
+//

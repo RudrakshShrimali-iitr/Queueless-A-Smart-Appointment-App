@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:qless_app/customer side/upcoming_booking.dart';
 import 'package:qless_app/models/service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:qless_app/services/booking_service.dart';
 
 class ServicesList extends StatelessWidget {
   final List<ServiceModel> services;
@@ -60,11 +62,40 @@ class ServicesList extends StatelessWidget {
             final service = filteredServices[index];
             return ServiceCard(
               service: service,
-              onBook: () {
-                onBookService(service);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${service.serviceName} booked successfully!')),
-                );
+              onBook: () async {
+                final user = FirebaseAuth.instance.currentUser;
+                if (user == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('You must be logged in')),
+                  );
+                  return;
+                }
+
+                try {
+                  await BookingService().createBooking(
+                    merchantId: service.merchantId,
+                    businessName: service.businessName,
+                    customerId: user.uid,
+                    customerName: user.displayName ?? 'Guest',
+                    serviceType: " ", // ← must supply
+                    timeSlot: DateTime.now().add(const Duration(hours: 1)),
+                    serviceName: service.serviceName, // ← must supply
+                    // ← must supply
+                    price: service.price,
+                  );
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        '${service.serviceName} booked successfully!',
+                      ),
+                    ),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Failed to book: $e')));
+                }
               },
             );
           },
@@ -76,10 +107,10 @@ class ServicesList extends StatelessWidget {
 
 class ServiceCard extends StatelessWidget {
   final ServiceModel service;
-  final VoidCallback onBook;
+  final Future<void> Function() onBook;
 
   const ServiceCard({Key? key, required this.service, required this.onBook})
-      : super(key: key);
+    : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -206,7 +237,7 @@ class ServiceActions extends StatelessWidget {
   final VoidCallback onBook;
 
   const ServiceActions({Key? key, required this.price, required this.onBook})
-      : super(key: key);
+    : super(key: key);
 
   @override
   Widget build(BuildContext context) {
