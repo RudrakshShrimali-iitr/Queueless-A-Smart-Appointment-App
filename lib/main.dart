@@ -9,15 +9,18 @@ import 'package:qless_app/services/booking_service.dart';
 import 'merchant side/business_form.dart';
 import 'package:qless_app/customer side/customer_page.dart';
 import 'firebase_options.dart';
+
 import 'screens/auth_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized(); // 👈 required before Firebase
-  await Firebase.initializeApp(
-    options:
-        DefaultFirebaseOptions.currentPlatform, // 👈 from firebase_options.dart
-  );
+
+  // await Firebase.initializeApp(
+  //   options:
+  //       DefaultFirebaseOptions.currentPlatform, // 👈 from firebase_options.dart
+  // );
+   await Firebase.initializeApp();
 
   runApp(
     MultiBlocProvider(
@@ -27,6 +30,7 @@ void main() async {
         ),
         // Add other providers if needed
       ],
+
       child: QueueLessApp(),
     ),
   );

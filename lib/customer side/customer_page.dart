@@ -17,7 +17,7 @@ class _CustomerHomePageState extends State<CustomerHomePage>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
-  List<ServiceModel> _bookedServices = [];
+  final List<ServiceModel> _bookedServices = [];
 
   void _onBookService(ServiceModel service) {
     setState(() {

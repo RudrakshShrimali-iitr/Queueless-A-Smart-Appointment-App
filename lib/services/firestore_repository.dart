@@ -26,7 +26,7 @@ class FirestoreRepository {
           .get();
 
       for (final bizDoc in bizSnap.docs) {
-        final bizData = bizDoc.data() as Map<String, dynamic>;
+        final bizData = bizDoc.data();
         final businessName = bizData['businessName'] as String? ?? 'Unknown';
 
         // 3) Read the services field (expected to be an array)

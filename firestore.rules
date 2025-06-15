@@ -2,6 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // 🔐 Users collection
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if request.auth != null
@@ -10,36 +11,50 @@ service cloud.firestore {
       allow update: if request.auth.uid == userId;
       allow delete: if false;
 
+      // 🔐 Nested businesses and services under user
       match /businesses/{businessId} {
-        allow read,write: if isSignedIn();
+        allow read, write: if isSignedIn();
 
         match /services/{serviceId} {
-         allow read,write: if isSignedIn();
+          allow read, write: if isSignedIn();
         }
       }
     }
 
+    // 🔐 Merchants collection
     match /merchants/{merchantId} {
       allow read: if isSignedIn();
       allow create, update, delete: if isMerchant(merchantId);
     }
 
+    // 🔐 Global services
     match /services/{serviceId} {
       allow read: if isSignedIn();
       allow create, update, delete: if isMerchant(request.resource.data.merchantId);
     }
 
+    // ✅ Bookings collection
     match /bookings/{bookingId} {
-      allow create: if isCustomer() 
+      // Only customers can create their own valid bookings
+      allow create: if isCustomer()
                     && request.resource.data.customerId == request.auth.uid
                     && validBooking(request.resource.data);
-      allow read: if (isCustomer() && resource.data.customerId == request.auth.uid)
-                  || isMerchant(resource.data.merchantId);
+
+      // ✅ Fixed: Allow merchant read access safely using auth lookup
+      allow read: if isSignedIn() && (
+        (isCustomer() && resource.data.customerId == request.auth.uid) ||
+        isMerchantUser()
+      );
+
+      // ✅ Allow update by owner or merchant
       allow update: if isMerchant(resource.data.merchantId)
                     || (isCustomer() && resource.data.customerId == request.auth.uid
                         && request.resource.data.status == 'cancelled');
+
       allow delete: if false;
     }
+
+    // ✅ Helper Functions
 
     function isSignedIn() {
       return request.auth != null;
@@ -54,6 +69,12 @@ service cloud.firestore {
       return isSignedIn()
              && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'merchant'
              && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.merchantId == merchantId;
+    }
+
+    // ✅ NEW: Use this in read rule to avoid crashing before resource is available
+    function isMerchantUser() {
+      return isSignedIn()
+             && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'merchant';
     }
 
     function validNewUser() {

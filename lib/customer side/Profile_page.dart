@@ -22,7 +22,6 @@ class _ProfilePageState extends State<ProfilePage> {
   File? _pickedImageFile;
 
   bool _isEditing = false;
-  final String _profileImageUrl = 'https://via.placeholder.com/120';
 
   Future<void> _pickImage() async {
     final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
@@ -31,7 +30,6 @@ class _ProfilePageState extends State<ProfilePage> {
         _pickedImageFile = File(pickedFile.path);
       });
 
-      // TODO: Upload to Firebase or update user profile
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Image selected: ${pickedFile.name}")),
       );
@@ -49,6 +47,7 @@ class _ProfilePageState extends State<ProfilePage> {
     if (userState is UserLoaded) {
       _nameController.text = (userState).user.name;
       _emailController.text = (userState).user.email;
+      _phoneController.text = (userState).user.phone;
     }
   }
 
@@ -238,18 +237,58 @@ class _ProfilePageState extends State<ProfilePage> {
     return Center(
       child: Stack(
         children: [
-          CircleAvatar(
-            radius: 60,
-            backgroundImage: _pickedImageFile != null
-                ? FileImage(_pickedImageFile!)
-                : NetworkImage(_profileImageUrl),
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Color(0xFF6366F1).withOpacity(0.2),
+                width: 3,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: CircleAvatar(
+              radius: 60,
+              backgroundColor: Colors.grey[100],
+              child: _pickedImageFile != null
+                  ? ClipOval(
+                      child: Image.file(
+                        _pickedImageFile!,
+                        width: 120,
+                        height: 120,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : ClipOval(
+                      child: Image.asset(
+                        'lib/assets/images/profile.png',
+                        width: 120,
+                        height: 120,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.person,
+                            size: 60,
+                            color: Color(0xFF6366F1).withOpacity(0.7),
+                          );
+                        },
+                      ),
+                    ),
+            ),
           ),
           if (_isEditing)
             Positioned(
               bottom: 0,
               right: 4,
               child: GestureDetector(
-                onTap: _pickImage, // ✅ Call the image picker function
+                onTap: _pickImage,
                 child: Container(
                   width: 36,
                   height: 36,
@@ -257,6 +296,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     color: Color(0xFF6366F1),
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Icon(Icons.camera_alt, color: Colors.white, size: 18),
                 ),

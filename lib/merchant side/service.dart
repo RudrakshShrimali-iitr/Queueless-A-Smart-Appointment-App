@@ -288,70 +288,87 @@ class _MerchantServicesState extends State<MerchantServices> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Service'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Are you sure you want to delete this service?'),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.room_service, color: Colors.red),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          service['name'] ?? 'Unnamed Service',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        Text(
-                          '${service['duration']} • \$${service['price']}',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'This action cannot be undone.',
-              style: TextStyle(
-                color: Colors.red[700],
-                fontSize: 12,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Delete Service',
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Are you sure you want to delete this service?'),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.room_service, color: Colors.red),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            service['name'] ?? 'Unnamed Service',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${service['duration']} • \$${service['price']}',
+                            style: TextStyle(
+                              color: Colors.grey[700],
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'This action cannot be undone.',
+                style: TextStyle(
+                  color: Colors.red[700],
+                  fontSize: 13,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
+          ElevatedButton.icon(
             onPressed: () {
               Navigator.of(ctx).pop();
               _deleteService(service['id'], serviceName: service['name']);
             },
+            icon: const Icon(Icons.delete),
+            label: const Text('Delete'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-            child: const Text('Delete'),
           ),
         ],
       ),

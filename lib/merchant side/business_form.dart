@@ -352,7 +352,7 @@ class _BusinessSetupFormState extends State<BusinessSetupForm> {
           context,
           MaterialPageRoute(
             builder: (context) =>
-                MerchantDashboard(businessId: docRef.id, merchantId: ''),
+                MerchantDashboard(businessId: docRef.id, merchantId: userId),
           ),
         );
       } catch (e) {

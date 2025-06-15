@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_database/firebase_database.dart';
 import '../models/booking.dart';
 
@@ -39,26 +40,50 @@ class BookingService {
   /// Create a new booking and save it under both merchant and customer nodes.
   Future<Booking> createBooking({
     required String merchantId,
-   required  String businessName,
-    
+    required String businessName,
+     required int serviceDuration,
     required String serviceName,
-    required String serviceType,
+
     required double price,
     required String customerId,
     required String customerName,
     required DateTime timeSlot,
+    required String serviceType,
     String? customerProfileImage,
   }) async {
     final newBookingRef = _db.ref('merchants/$merchantId/bookings').push();
 
+    String customerPhone = '';
+    String resolvedCustomerName = customerName;
+    try {
+      final customerDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(customerId)
+          .get();
+
+      if (customerDoc.exists) {
+        final data = customerDoc.data();
+        customerPhone = data?['phone'] ?? '';
+
+        if (resolvedCustomerName.toLowerCase() == 'guest' ||
+            resolvedCustomerName.trim().isEmpty) {
+          resolvedCustomerName = data?['name'] ?? 'Guest';
+        }
+      }
+    } catch (e) {
+      print('Failed to fetch customer phone: $e');
+    }
+
     final booking = Booking(
       id: newBookingRef.key!,
       customerId: customerId,
+      customerPhone: customerPhone, // Assuming phone is not provided here
       serviceType: serviceType,
-      customerName: customerName,
+      customerName: resolvedCustomerName,
       merchantId: merchantId,
+      serviceDuration: serviceDuration,
       serviceName: serviceName,
-     
+
       price: price,
       bookingTime: timeSlot,
       status: BookingStatus.pending,
@@ -81,16 +106,19 @@ class BookingService {
   /// Update booking status in both merchant and customer paths.
   Future<void> updateBookingStatus(
     String merchantId,
-
+    String customerId,
     String bookingId,
     String status,
   ) async {
-    final updates = {'status': status.toString()};
+    final updates = {'status': status};
 
-    // Update in both merchant and customer nodes
+    final merchantPath = _db.ref('merchants/$merchantId/bookings/$bookingId');
+    final customerPath = _db.ref('customers/$customerId/bookings/$bookingId');
+
     await Future.wait([
-      _db.ref('merchants/$merchantId/bookings/$bookingId').update(updates),
-      
+      merchantPath.update(updates),
+      customerPath.update(updates),
     ]);
+    // Update in both merchant and customer nodes
   }
 }

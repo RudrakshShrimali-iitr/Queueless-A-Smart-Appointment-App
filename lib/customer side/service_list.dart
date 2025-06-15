@@ -1,10 +1,11 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:qless_app/customer side/upcoming_booking.dart';
 import 'package:qless_app/models/service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:qless_app/services/booking_service.dart';
 
-class ServicesList extends StatelessWidget {
+class ServicesList extends StatefulWidget {
   final List<ServiceModel> services;
   final String searchQuery;
   final List<ServiceModel> bookedServices;
@@ -19,21 +20,39 @@ class ServicesList extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<ServicesList> createState() => _ServicesListState();
+}
+
+class _ServicesListState extends State<ServicesList> {
+  // Track which services are currently being booked or already booked
+  final Set<String> _bookingInProgress = <String>{};
+  final Set<String> _alreadyBooked = <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize already booked services
+    for (final service in widget.bookedServices) {
+      _alreadyBooked.add(service.serviceName);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final filteredServices = services.where((service) {
-      final query = searchQuery.toLowerCase();
+    final filteredServices = widget.services.where((service) {
+      final query = widget.searchQuery.toLowerCase();
       return service.serviceName.toLowerCase().contains(query);
     }).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (bookedServices.isNotEmpty)
+        if (widget.bookedServices.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 16.0),
             child: UpcomingBookingCard(
-              serviceName: bookedServices.last.serviceName,
-              salonName: bookedServices.last.businessName,
+              serviceName: widget.bookedServices.last.serviceName,
+              salonName: widget.bookedServices.last.businessName,
               bookingTime: 'Today, 2:30 PM',
             ),
           ),
@@ -60,9 +79,41 @@ class ServicesList extends StatelessWidget {
           itemCount: filteredServices.length,
           itemBuilder: (context, index) {
             final service = filteredServices[index];
+            final serviceKey = '${service.serviceName}_${service.merchantId}';
+            final isBookingInProgress = _bookingInProgress.contains(serviceKey);
+            final isAlreadyBooked = _alreadyBooked.contains(
+              service.serviceName,
+            );
+
             return ServiceCard(
               service: service,
+              isBookingInProgress: isBookingInProgress,
+              isAlreadyBooked: isAlreadyBooked,
               onBook: () async {
+                // Check if already booked
+                if (isAlreadyBooked) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'You have already booked ${service.serviceName}',
+                      ),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  return;
+                }
+
+                // Check if booking is in progress
+                if (isBookingInProgress) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Booking is already in progress...'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                  return;
+                }
+
                 final user = FirebaseAuth.instance.currentUser;
                 if (user == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -71,30 +122,60 @@ class ServicesList extends StatelessWidget {
                   return;
                 }
 
+                // Set booking in progress
+                setState(() {
+                  _bookingInProgress.add(serviceKey);
+                });
+
                 try {
+                  final userDoc = await FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(user.uid)
+                      .get();
+
+                  final customerName = userDoc.data()?['name'] ?? 'Guest';
+
                   await BookingService().createBooking(
                     merchantId: service.merchantId,
+                    serviceDuration: service.duration,
                     businessName: service.businessName,
                     customerId: user.uid,
-                    customerName: user.displayName ?? 'Guest',
+                    customerName: customerName,
                     serviceType: " ", // ← must supply
                     timeSlot: DateTime.now().add(const Duration(hours: 1)),
                     serviceName: service.serviceName, // ← must supply
-                    // ← must supply
                     price: service.price,
                   );
+
+                  // Mark as booked successfully
+                  setState(() {
+                    _alreadyBooked.add(service.serviceName);
+                    _bookingInProgress.remove(serviceKey);
+                  });
 
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
                         '${service.serviceName} booked successfully!',
                       ),
+                      backgroundColor: Colors.green,
                     ),
                   );
+
+                  // Call the callback
+                  widget.onBookService(service);
                 } catch (e) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Failed to book: $e')));
+                  // Remove from booking in progress on error
+                  setState(() {
+                    _bookingInProgress.remove(serviceKey);
+                  });
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to book: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
               },
             );
@@ -108,9 +189,16 @@ class ServicesList extends StatelessWidget {
 class ServiceCard extends StatelessWidget {
   final ServiceModel service;
   final Future<void> Function() onBook;
+  final bool isBookingInProgress;
+  final bool isAlreadyBooked;
 
-  const ServiceCard({Key? key, required this.service, required this.onBook})
-    : super(key: key);
+  const ServiceCard({
+    Key? key,
+    required this.service,
+    required this.onBook,
+    required this.isBookingInProgress,
+    required this.isAlreadyBooked,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -133,7 +221,12 @@ class ServiceCard extends StatelessWidget {
           ServiceIcon(category: service.serviceName),
           const SizedBox(width: 16),
           Expanded(child: ServiceDetails(service: service)),
-          ServiceActions(price: service.price, onBook: onBook),
+          ServiceActions(
+            price: service.price,
+            onBook: onBook,
+            isBookingInProgress: isBookingInProgress,
+            isAlreadyBooked: isAlreadyBooked,
+          ),
         ],
       ),
     );
@@ -235,9 +328,16 @@ class ServiceMetrics extends StatelessWidget {
 class ServiceActions extends StatelessWidget {
   final double price;
   final VoidCallback onBook;
+  final bool isBookingInProgress;
+  final bool isAlreadyBooked;
 
-  const ServiceActions({Key? key, required this.price, required this.onBook})
-    : super(key: key);
+  const ServiceActions({
+    Key? key,
+    required this.price,
+    required this.onBook,
+    required this.isBookingInProgress,
+    required this.isAlreadyBooked,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -254,16 +354,34 @@ class ServiceActions extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         ElevatedButton(
-          onPressed: onBook,
+          onPressed: (isBookingInProgress || isAlreadyBooked) ? null : onBook,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF667eea),
+            backgroundColor: isAlreadyBooked
+                ? Colors.green
+                : (isBookingInProgress ? Colors.grey : const Color(0xFF667eea)),
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
+            disabledBackgroundColor: isAlreadyBooked
+                ? Colors.green
+                : Colors.grey,
+            disabledForegroundColor: Colors.white,
           ),
-          child: const Text('Book Now', style: TextStyle(fontSize: 12)),
+          child: isBookingInProgress
+              ? const SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : Text(
+                  isAlreadyBooked ? 'Booked' : 'Book Now',
+                  style: const TextStyle(fontSize: 12),
+                ),
         ),
       ],
     );

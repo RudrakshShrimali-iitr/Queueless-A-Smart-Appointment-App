@@ -19,36 +19,38 @@ class BookingRepository {
   }
 
   /// Listen to all bookings — accepts callbacks directly
-Stream<List<Booking>> listenToBookings({String? merchantId}) {
-  final ref = _baseRef;
+  Stream<List<Booking>> listenToBookings({String? merchantId}) {
+    final ref = _baseRef;
 
-  return ref.onValue.map((event) {
-    final merchantData = event.snapshot.value as Map<dynamic, dynamic>? ?? {};
-    final List<Booking> allBookings = [];
+    return ref.onValue.map((event) {
+      final merchantData = event.snapshot.value as Map<dynamic, dynamic>? ?? {};
+      final List<Booking> allBookings = [];
 
-    merchantData.forEach((merchantKey, merchantValue) {
-      if (merchantValue is Map) {
-        final bookingsMap = merchantValue['bookings'] as Map<dynamic, dynamic>? ?? {};
-        bookingsMap.forEach((bookingId, bookingData) {
-          if (bookingData is Map) {
-            try {
-              final booking = Booking.fromJson(
-                Map<String, dynamic>.from(bookingData)..['id'] = bookingId,
-              );
-              if (merchantId == null || merchantId == merchantKey) {
-                allBookings.add(booking);
-              }
-            } catch (_) {}
-          }
-        });
-      }
+      merchantData.forEach((merchantKey, merchantValue) {
+        if (merchantValue is Map) {
+          final bookingsMap =
+              merchantValue['bookings'] as Map<dynamic, dynamic>? ?? {};
+          bookingsMap.forEach((bookingId, bookingData) {
+            if (bookingData is Map) {
+              try {
+                final booking = Booking.fromJson(
+                  Map<String, dynamic>.from(bookingData)..['id'] = bookingId,
+                );
+                if (merchantId == null || merchantId == merchantKey) {
+                  allBookings.add(booking);
+                }
+              } catch (_) {}
+            }
+          });
+        }
+      });
+
+      return allBookings;
     });
+  }
 
-    return allBookings;
-  });
-}
   /// Listen to new bookings for a specific merchant
-  StreamSubscription? listenToNewMerchantBookings({
+  StreamSubscription<DatabaseEvent>? listenToNewMerchantBookings({
     required String merchantId,
     required void Function(DatabaseEvent) onNewBooking,
     void Function(Object)? onError,

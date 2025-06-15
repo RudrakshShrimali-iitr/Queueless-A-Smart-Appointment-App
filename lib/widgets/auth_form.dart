@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:qless_app/bloc/user/user_bloc.dart';
 import 'package:qless_app/bloc/user/user_event.dart';
 import 'package:qless_app/merchant%20side/business_form.dart';
-import 'package:qless_app/merchant%20side/merchant_dashboard.dart'; // Add this import
+import 'package:qless_app/merchant%20side/merchant_dashboard.dart';
 import 'package:qless_app/customer side/customer_page.dart';
 import 'package:qless_app/screens/auth_screen.dart';
 import '../services/auth_service.dart';
@@ -26,10 +26,12 @@ class _AuthFormState extends State<AuthForm> {
   String selectedRole = 'customer';
   bool isPasswordVisible = false;
   final _formKey = GlobalKey<FormState>();
+
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _phoneController = TextEditingController(); // 👈 New phone controller
 
   @override
   void dispose() {
@@ -37,6 +39,7 @@ class _AuthFormState extends State<AuthForm> {
     _passwordController.dispose();
     _nameController.dispose();
     _confirmPasswordController.dispose();
+    _phoneController.dispose(); // 👈 Dispose
     super.dispose();
   }
 
@@ -66,6 +69,8 @@ class _AuthFormState extends State<AuthForm> {
                 onRoleChanged: (role) => setState(() => selectedRole = role),
               ),
               SizedBox(height: 24),
+
+              // Full Name for Sign-Up
               if (!widget.isLogin) ...[
                 CustomTextField(
                   controller: _nameController,
@@ -80,6 +85,28 @@ class _AuthFormState extends State<AuthForm> {
                 ),
                 SizedBox(height: 16),
               ],
+
+              // Phone number only for customers during sign-up
+              if (!widget.isLogin && selectedRole == 'customer') ...[
+                CustomTextField(
+                  controller: _phoneController,
+                  labelText: 'Phone Number',
+                  prefixIcon: Icons.phone_outlined,
+                  keyboardType: TextInputType.phone,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your phone number';
+                    }
+                    if (!RegExp(r'^\d{10}$').hasMatch(value)) {
+                      return 'Enter a valid 10-digit phone number';
+                    }
+                    return null;
+                  },
+                ),
+                SizedBox(height: 16),
+              ],
+
+              // Email
               CustomTextField(
                 controller: _emailController,
                 labelText: 'Email Address',
@@ -98,6 +125,8 @@ class _AuthFormState extends State<AuthForm> {
                 },
               ),
               SizedBox(height: 16),
+
+              // Password
               CustomTextField(
                 controller: _passwordController,
                 labelText: 'Password',
@@ -120,6 +149,8 @@ class _AuthFormState extends State<AuthForm> {
                   return null;
                 },
               ),
+
+              // Confirm Password for Sign-Up
               if (!widget.isLogin) ...[
                 SizedBox(height: 16),
                 CustomTextField(
@@ -139,6 +170,8 @@ class _AuthFormState extends State<AuthForm> {
                 ),
               ],
               SizedBox(height: 24),
+
+              // Submit button
               SubmitButton(
                 isLogin: widget.isLogin,
                 onPressed: () {
@@ -147,6 +180,8 @@ class _AuthFormState extends State<AuthForm> {
                   }
                 },
               ),
+
+              // Forgot password for login
               if (widget.isLogin) ...[
                 SizedBox(height: 16),
                 _buildForgotPassword(),
@@ -177,6 +212,7 @@ class _AuthFormState extends State<AuthForm> {
     final password = _passwordController.text.trim();
     final name = _nameController.text.trim();
     final role = selectedRole;
+    final phone = _phoneController.text.trim(); // 👈 Get phone input
 
     try {
       if (widget.isLogin) {
@@ -204,19 +240,16 @@ class _AuthFormState extends State<AuthForm> {
             ),
           );
         } else if (storedRole == 'merchant') {
-          // Check if businessId exists
           if (userData.containsKey('businessId') &&
               userData['businessId'] != null) {
             final businessId = userData['businessId'];
-
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
                 builder: (_) =>
-                    MerchantDashboard(merchantId: uid, businessId: businessId),
+                    MerchantDashboard(businessId: businessId, merchantId: uid),
               ),
             );
           } else {
-            // Try fetching business from subcollection as fallback
             final businessSnap = await FirebaseFirestore.instance
                 .collection('users')
                 .doc(uid)
@@ -226,7 +259,6 @@ class _AuthFormState extends State<AuthForm> {
             if (businessSnap.docs.isNotEmpty) {
               final businessId = businessSnap.docs.first.id;
 
-              // Save businessId in main user doc for faster future access
               await FirebaseFirestore.instance
                   .collection('users')
                   .doc(uid)
@@ -241,7 +273,6 @@ class _AuthFormState extends State<AuthForm> {
                 ),
               );
             } else {
-              // No business found, go to setup
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(builder: (_) => BusinessSetupForm()),
               );
@@ -249,7 +280,7 @@ class _AuthFormState extends State<AuthForm> {
           }
         }
       } else {
-        // SIGNUP FLOW
+        // SIGN-UP FLOW
         UserCredential cred = await FirebaseAuth.instance
             .createUserWithEmailAndPassword(email: email, password: password);
 
@@ -260,6 +291,7 @@ class _AuthFormState extends State<AuthForm> {
           'email': email,
           'role': role,
           'createdAt': Timestamp.now(),
+          if (role == 'customer') 'phone': phone, // 👈 Only save if customer
         });
 
         ScaffoldMessenger.of(context).showSnackBar(

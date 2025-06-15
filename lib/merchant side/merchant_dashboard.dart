@@ -13,63 +13,119 @@ import 'service.dart';
 class MerchantDashboard extends StatefulWidget {
   final String businessId;
   final String merchantId;
-  const MerchantDashboard({Key? key, required this.businessId, required this.merchantId}) : super(key: key);
+  const MerchantDashboard({
+    Key? key,
+    required this.businessId,
+    required this.merchantId,
+  }) : super(key: key);
 
   @override
   State<MerchantDashboard> createState() => _MerchantDashboardState();
 }
 
 class _MerchantDashboardState extends State<MerchantDashboard> {
-  late String _businessId;
   String? _businessName;
   List<Map<String, dynamic>> _services = [];
   int _selectedIndex = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _loadBusinessIdAndServices();
-    // Initialize booking data
-    context.read<BookingBloc>().add(LoadBookings(widget.businessId));
+    _loadBusinessData();
+    // Initialize booking data with the correct merchantId
+    context.read<BookingBloc>().add(LoadBookings(widget.merchantId));
   }
 
-  Future<void> _loadBusinessIdAndServices() async {
-    _businessId = widget.businessId;
-    await _fetchServices();
+  Future<void> _loadBusinessData() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      await _fetchBusinessInfo();
+      await _fetchServices();
+
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      log('❌ Error loading business data: $e');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Failed to load business data: $e';
+      });
+    }
   }
 
-  Future<void> _fetchServices() async {
-    final userId = FirebaseAuth.instance.currentUser!.uid;
+  Future<void> _fetchBusinessInfo() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    
+    if (userId == null) {
+      throw Exception('User not authenticated');
+    }
+
+    log('📊 Fetching business info for userId: $userId, businessId: ${widget.businessId}');
 
     final snapshot = await FirebaseFirestore.instance
         .collection('users')
         .doc(userId)
         .collection('businesses')
-        .doc(_businessId)
+        .doc(widget.businessId)
         .get();
 
     if (!snapshot.exists) {
-      log('❌ Business doc not found');
+      log('❌ Business document not found');
+      throw Exception('Business not found');
+    }
+
+    final businessData = snapshot.data()!;
+    final businessName = businessData['businessName'] as String?;
+    
+    log('✅ Business name fetched: $businessName');
+    
+    setState(() {
+      _businessName = businessName ?? 'Unnamed Business';
+    });
+  }
+
+  Future<void> _fetchServices() async {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    
+    if (userId == null) {
+      throw Exception('User not authenticated');
+    }
+
+    final snapshot = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('businesses')
+        .doc(widget.businessId)
+        .get();
+
+    if (!snapshot.exists) {
+      log('❌ Business document not found for services');
       return;
     }
 
     final businessData = snapshot.data()!;
-    setState(() {
-      _businessName = businessData['businessName'] ?? 'Unnamed Business';
-    });
-
     final servicesFromBusiness = businessData['services'] as List<dynamic>?;
+    
     if (servicesFromBusiness != null) {
       setState(() {
         _services = servicesFromBusiness
             .map((s) => Map<String, dynamic>.from(s))
             .toList();
       });
+      log('✅ Services loaded: ${_services.length} services');
     } else {
       setState(() {
         _services = [];
       });
+      log('ℹ️ No services found');
     }
   }
 
@@ -87,8 +143,44 @@ class _MerchantDashboardState extends State<MerchantDashboard> {
         key: _scaffoldKey,
         backgroundColor: Colors.grey[50],
         appBar: _buildAppBar(),
-        body: _buildBody(),
+        body: _isLoading ? _buildLoadingBody() : 
+              _errorMessage != null ? _buildErrorBody() : _buildBody(),
         bottomNavigationBar: _buildBottomNavBar(),
+      ),
+    );
+  }
+
+  Widget _buildLoadingBody() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 16),
+          Text('Loading business data...'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorBody() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 64, color: Colors.red),
+          const SizedBox(height: 16),
+          Text(
+            _errorMessage!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.red),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _loadBusinessData,
+            child: const Text('Retry'),
+          ),
+        ],
       ),
     );
   }
@@ -231,32 +323,39 @@ class _MerchantDashboardState extends State<MerchantDashboard> {
           case 0:
             return DashboardContent(
               businessName: _businessName,
-              bookings: state is BookingLoaded ? state.bookings : [], initialBookings: [],
+              merchantId: widget.merchantId, // Pass the merchantId here
+              bookings: state is BookingLoaded ? state.bookings : [],
+              initialBookings: [],
             );
           case 1:
             return DashboardContent.bookingsPage(
-              bookings: state is BookingLoaded ? state.bookings : [], initialBookings: [],
+              bookings: state is BookingLoaded ? state.bookings : [],
+              initialBookings: [],
+              merchantId: widget.merchantId, // Pass the merchantId here
             );
           case 2:
             return DashboardContent.queuePage(
-              bookings: state is BookingLoaded ? state.bookings : [], initialBookings: [],
+              bookings: state is BookingLoaded ? state.bookings : [],
+              initialBookings: [],
+              merchantId: widget.merchantId, // Pass the merchantId here
             );
           case 3:
             return MerchantServices(
-              businessId: _businessId,
+              businessId: widget.businessId, // Use businessId for services
               services: _services,
               onServicesChanged: _refreshServices,
             );
           default:
             return DashboardContent(
               businessName: _businessName,
-              bookings: state is BookingLoaded ? state.bookings : [], initialBookings: [],
+              merchantId: widget.merchantId, // Pass the merchantId here
+              bookings: state is BookingLoaded ? state.bookings : [],
+              initialBookings: [],
             );
         }
       },
     );
   }
-
 
   void _refreshServices() {
     _fetchServices();
@@ -305,9 +404,9 @@ class _MerchantDashboardState extends State<MerchantDashboard> {
   }
 
   void _showSettings() {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Navigate to Settings page')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Navigate to Settings page')),
+    );
   }
 
   void _logout() {

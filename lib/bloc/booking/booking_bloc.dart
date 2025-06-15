@@ -39,11 +39,12 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
         merchantId:   event.merchantId,         
         businessName: event.businessName,
         serviceName:  event.serviceName,
-       
+        serviceDuration: event.serviceDuration,
         price:        event.price,
         customerId:   event.customerId,
         customerName: event.customerName,
-        timeSlot:     event.timeSlot, serviceType: '',
+        timeSlot:     event.timeSlot,
+        serviceType:  event.serviceType,
       
       );
 
@@ -65,6 +66,7 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
     try {
       await bookingService.updateBookingStatus(
          event.merchantId,
+          event.customerId,
        event.bookingId,
           event.status,
       );

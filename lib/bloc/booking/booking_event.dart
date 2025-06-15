@@ -10,6 +10,7 @@ class LoadBookings extends BookingEvent {
 class CreateBooking extends BookingEvent {
   final String merchantId;
   final String serviceId;
+  final int serviceDuration; // Optional field for service duration
   final String serviceName;
   final String businessName;
   final String serviceType;
@@ -18,10 +19,10 @@ class CreateBooking extends BookingEvent {
   final String customerName;
   final DateTime timeSlot;
 
-  CreateBooking(Booking booking, {
+  CreateBooking({
     required this.merchantId,
     required this.businessName,
-
+    required this .serviceDuration, // Optional field for service duration
     required this.serviceId,
     required this.serviceName,
     required this.serviceType,
@@ -34,10 +35,12 @@ class CreateBooking extends BookingEvent {
 
 class UpdateBookingStatus extends BookingEvent {
   final String merchantId;
+  final String customerId;
   final String bookingId;
-  final  String status;
+  final String status;
   UpdateBookingStatus({
     required this.merchantId,
+    required this.customerId,
     required this.bookingId,
     required this.status,
   });
