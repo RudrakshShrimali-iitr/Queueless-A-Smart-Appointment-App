@@ -49,6 +49,15 @@ class BookingRepository {
     });
   }
 
+Stream<Booking> listenToCustomerBookingStatus(String customerId) {
+  final ref = FirebaseDatabase.instance.ref('customers/$customerId/bookings');
+
+  return ref.onChildChanged.map((event) {
+    final updatedData = Map<String, dynamic>.from(event.snapshot.value as Map);
+    updatedData['id'] = event.snapshot.key;
+    return Booking.fromJson(updatedData);
+  });
+}
   /// Listen to new bookings for a specific merchant
   StreamSubscription<DatabaseEvent>? listenToNewMerchantBookings({
     required String merchantId,

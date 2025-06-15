@@ -27,6 +27,9 @@ class _ServicesListState extends State<ServicesList> {
   // Track which services are currently being booked or already booked
   final Set<String> _bookingInProgress = <String>{};
   final Set<String> _alreadyBooked = <String>{};
+  
+  // Store the latest booking details
+  Map<String, dynamic>? _latestBooking;
 
   @override
   void initState() {
@@ -35,6 +38,81 @@ class _ServicesListState extends State<ServicesList> {
     for (final service in widget.bookedServices) {
       _alreadyBooked.add(service.serviceName);
     }
+    _loadLatestBooking();
+  }
+
+  // Load the latest booking from Firestore
+  Future<void> _loadLatestBooking() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('bookings')
+          .where('customerId', isEqualTo: user.uid)
+          .where('status', whereIn: ['pending', 'confirmed'])
+          .orderBy('bookingTime', descending: true)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        setState(() {
+          _latestBooking = querySnapshot.docs.first.data();
+        });
+      }
+    } catch (e) {
+      print('Error loading latest booking: $e');
+    }
+  }
+
+  // Get the actual queue position by counting existing bookings
+  Future<int> _getQueuePosition(String merchantId, String serviceName) async {
+    try {
+      // Query existing bookings for this merchant and service
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('bookings')
+          .where('merchantId', isEqualTo: merchantId)
+          .where('serviceName', isEqualTo: serviceName)
+          .where('status', isEqualTo: 'pending') // Only count pending bookings
+          .get();
+      
+      // Return the next position (existing count + 1)
+      return querySnapshot.docs.length + 1;
+    } catch (e) {
+      print('Error getting queue position: $e');
+      // Fallback to a default position if query fails
+      return 1;
+    }
+  }
+
+  String _formatBookingTime(dynamic timestamp) {
+    if (timestamp == null) return 'Time not set';
+    
+    DateTime dateTime;
+    if (timestamp is Timestamp) {
+      dateTime = timestamp.toDate();
+    } else if (timestamp is DateTime) {
+      dateTime = timestamp;
+    } else {
+      return 'Time not set';
+    }
+
+    // Format as "Today, 2:30 PM" or "Tomorrow, 10:00 AM"
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final bookingDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
+    
+    String dayLabel;
+    if (bookingDate.isAtSameMomentAs(today)) {
+      dayLabel = 'Today';
+    } else if (bookingDate.isAtSameMomentAs(today.add(Duration(days: 1)))) {
+      dayLabel = 'Tomorrow';
+    } else {
+      dayLabel = '${dateTime.day}/${dateTime.month}';
+    }
+
+    final timeString = '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+    return '$dayLabel, $timeString';
   }
 
   @override
@@ -47,13 +125,15 @@ class _ServicesListState extends State<ServicesList> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (widget.bookedServices.isNotEmpty)
+        // Show upcoming booking card if there's a latest booking
+        if (_latestBooking != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 16.0),
             child: UpcomingBookingCard(
-              serviceName: widget.bookedServices.last.serviceName,
-              salonName: widget.bookedServices.last.businessName,
-              bookingTime: 'Today, 2:30 PM',
+              serviceName: _latestBooking!['serviceName'] ?? 'Unknown Service',
+              salonName: _latestBooking!['businessName'] ?? 'Unknown Business',
+              bookingTime: _formatBookingTime(_latestBooking!['bookingTime']),
+            
             ),
           ),
         Text(
@@ -135,6 +215,14 @@ class _ServicesListState extends State<ServicesList> {
 
                   final customerName = userDoc.data()?['name'] ?? 'Guest';
 
+                  // Get the actual queue position by counting existing bookings
+                  final queuePosition = await _getQueuePosition(
+                    service.merchantId, 
+                    service.serviceName
+                  );
+
+                  final bookingTime = DateTime.now().add(const Duration(hours: 1));
+
                   await BookingService().createBooking(
                     merchantId: service.merchantId,
                     serviceDuration: service.duration,
@@ -142,21 +230,28 @@ class _ServicesListState extends State<ServicesList> {
                     customerId: user.uid,
                     customerName: customerName,
                     serviceType: " ", // ← must supply
-                    timeSlot: DateTime.now().add(const Duration(hours: 1)),
+                    timeSlot: bookingTime,
                     serviceName: service.serviceName, // ← must supply
                     price: service.price,
                   );
 
-                  // Mark as booked successfully
+                  // Update the latest booking data to show in the card
                   setState(() {
                     _alreadyBooked.add(service.serviceName);
                     _bookingInProgress.remove(serviceKey);
+                    _latestBooking = {
+                      'serviceName': service.serviceName,
+                      'businessName': service.businessName,
+                      'bookingTime': bookingTime,
+                      'queuePosition': queuePosition,
+                      'status': 'pending',
+                    };
                   });
 
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        '${service.serviceName} booked successfully!',
+                        '${service.serviceName} booked successfully! Queue position: $queuePosition',
                       ),
                       backgroundColor: Colors.green,
                     ),
@@ -186,6 +281,7 @@ class _ServicesListState extends State<ServicesList> {
   }
 }
 
+// Rest of the classes remain the same...
 class ServiceCard extends StatelessWidget {
   final ServiceModel service;
   final Future<void> Function() onBook;

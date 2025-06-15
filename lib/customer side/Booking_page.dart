@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:qless_app/models/service.dart';
+import 'package:qless_app/models/booking.dart';
+// Ensure this model exists
 
 class BookingsPage extends StatefulWidget {
-  final List<ServiceModel> upcomingBookings;
-  final List<ServiceModel> bookings;
+  final List<Booking> bookings;
 
-  const BookingsPage({
-    Key? key,
-    required this.upcomingBookings,
-    required this.bookings,
-  }) : super(key: key);
+  const BookingsPage({Key? key, required this.bookings}) : super(key: key);
 
   @override
   State<BookingsPage> createState() => _BookingsPageState();
@@ -18,6 +14,16 @@ class BookingsPage extends StatefulWidget {
 class _BookingsPageState extends State<BookingsPage> {
   @override
   Widget build(BuildContext context) {
+    final confirmed = widget.bookings
+        .where((b) => b.status == 'confirmed')
+        .toList();
+    final pending = widget.bookings
+        .where((b) => b.status == 'pending')
+        .toList();
+    final completed = widget.bookings
+        .where((b) => b.status == 'completed')
+        .toList();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
@@ -26,35 +32,45 @@ class _BookingsPageState extends State<BookingsPage> {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: widget.upcomingBookings.isEmpty
-            ? const Center(
-                child: Text(
-                  "No upcoming bookings.",
-                  style: TextStyle(color: Colors.grey),
-                ),
-              )
-            : ListView.builder(
-                itemCount: widget.upcomingBookings.length,
-                itemBuilder: (context, index) {
-                  final booking = widget.upcomingBookings[index];
-                  return BookingCard(
-                    serviceName: booking.serviceName,
-                    salonName: booking.businessName,
-                    bookingTime:
-                        "Today, 2:30 PM", // Replace with actual time if available
-                    queuePosition:
-                        "#${index + 1} in line", // Dummy, replace with real position
-                  );
-                },
-              ),
-      ),
+      body: widget.bookings.isEmpty
+          ? const Center(child: Text("No bookings yet."))
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                if (confirmed.isNotEmpty) _buildSection("Confirmed", confirmed),
+                if (pending.isNotEmpty) _buildSection("Pending", pending),
+                if (completed.isNotEmpty) _buildSection("Completed", completed),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildSection(String title, List<Booking> items) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "$title Bookings",
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        ...items.map(
+          (b) => BookingCard(
+            type: title,
+            serviceName: b.serviceName,
+            salonName: b.businessName,
+            bookingTime: b.bookingTime.toString(),
+            queuePosition: "#${b.queuePosition?.toString() ?? 'N/A'} in line",
+          ),
+        ),
+        const SizedBox(height: 20),
+      ],
     );
   }
 }
 
 class BookingCard extends StatelessWidget {
+  final String type; // Confirmed / Pending / Completed
   final String serviceName;
   final String salonName;
   final String bookingTime;
@@ -62,6 +78,7 @@ class BookingCard extends StatelessWidget {
 
   const BookingCard({
     Key? key,
+    required this.type,
     required this.serviceName,
     required this.salonName,
     required this.bookingTime,
@@ -85,8 +102,8 @@ class BookingCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Upcoming Booking',
-            style: TextStyle(
+            '$type Booking',
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 16,
               fontWeight: FontWeight.bold,
@@ -95,7 +112,7 @@ class BookingCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             serviceName,
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -104,12 +121,12 @@ class BookingCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             salonName,
-            style: TextStyle(color: Colors.white70, fontSize: 14),
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
           ),
           const SizedBox(height: 4),
           Text(
             'Time: $bookingTime',
-            style: TextStyle(color: Colors.white70, fontSize: 14),
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
           ),
           const SizedBox(height: 8),
           Container(
@@ -127,7 +144,9 @@ class BookingCard extends StatelessWidget {
           Row(
             children: [
               ElevatedButton.icon(
-                onPressed: () {},
+                onPressed: () {
+                  // TODO: Add QR code logic
+                },
                 icon: const Icon(Icons.qr_code),
                 label: const Text("View QR"),
                 style: ElevatedButton.styleFrom(
@@ -137,7 +156,9 @@ class BookingCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               OutlinedButton.icon(
-                onPressed: () {},
+                onPressed: () {
+                  // TODO: Add cancel logic
+                },
                 icon: const Icon(Icons.cancel),
                 label: const Text("Cancel"),
                 style: OutlinedButton.styleFrom(

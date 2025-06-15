@@ -1,4 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:qless_app/bloc/booking/booking_bloc.dart';
+import 'package:qless_app/bloc/booking/booking_event.dart';
+import 'package:qless_app/bloc/booking/booking_state.dart';
 import 'package:qless_app/customer%20side/profile_page.dart';
 import 'package:qless_app/models/service.dart';
 import 'home_content.dart';
@@ -52,6 +57,12 @@ class _CustomerHomePageState extends State<CustomerHomePage>
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
     _animationController.forward();
+    final customerId = FirebaseAuth.instance.currentUser?.uid;
+    if (customerId != null) {
+      context.read<BookingBloc>().add(
+        ListenToCustomerBookingStatus(customerId: customerId),
+      );
+    }
   }
 
   @override
@@ -62,23 +73,37 @@ class _CustomerHomePageState extends State<CustomerHomePage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF667eea).withOpacity(0.1), Colors.white],
+    return BlocListener<BookingBloc, BookingState>(
+      listenWhen: (previous, current) => current is BookingLoaded,
+      listener: (context, state) {
+        if (state is BookingLoaded && state.bookings.isNotEmpty) {
+          final latestStatus = state.bookings.last.status;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Your booking is now: $latestStatus'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      },
+      child: Scaffold(
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF667eea).withOpacity(0.1), Colors.white],
+            ),
+          ),
+          child: SafeArea(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: _buildCurrentPage(),
+            ),
           ),
         ),
-        child: SafeArea(
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: _buildCurrentPage(),
-          ),
-        ),
+        bottomNavigationBar: _buildBottomNavigation(),
       ),
-      bottomNavigationBar: _buildBottomNavigation(),
     );
   }
 
@@ -94,14 +119,16 @@ class _CustomerHomePageState extends State<CustomerHomePage>
           bookedServices: _bookedServices,
         );
       case 1:
-        return BookingsPage(
-          bookings: _bookedServices, // past or completed bookings
-          upcomingBookings:
-              _bookedServices, // future bookings (or filter separately)
+        return BlocBuilder<BookingBloc, BookingState>(
+          builder: (context, state) {
+            if (state is BookingLoaded) {
+              return BookingsPage(bookings: state.bookings);
+            }
+            return Center(child: CircularProgressIndicator());
+          },
         );
+
       case 2:
-        return Center(child: Text("Wallet Feature Coming Soon"));
-      case 3:
         return ProfilePage();
       default:
         return Center(child: Text("Coming Soon"));
@@ -142,11 +169,7 @@ class _CustomerHomePageState extends State<CustomerHomePage>
               activeIcon: Icon(Icons.calendar_today),
               label: 'Bookings',
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.account_balance_wallet_outlined),
-              activeIcon: Icon(Icons.account_balance_wallet),
-              label: 'Wallet',
-            ),
+
             BottomNavigationBarItem(
               icon: Icon(Icons.person_outline),
               activeIcon: Icon(Icons.person),

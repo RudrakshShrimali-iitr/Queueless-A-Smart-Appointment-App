@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:qless_app/bloc/user/user_bloc.dart';
-import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+import 'package:file_picker/file_picker.dart';
+import 'dart:typed_data';
 
 import 'package:qless_app/bloc/user/user_state.dart';
 
@@ -18,25 +18,48 @@ class _ProfilePageState extends State<ProfilePage> {
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
   final _dobController = TextEditingController();
-  final ImagePicker _picker = ImagePicker();
-  File? _pickedImageFile;
+
+  Uint8List? _pickedImageBytes;
+  String? _pickedImageName;
 
   bool _isEditing = false;
 
   Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      setState(() {
-        _pickedImageFile = File(pickedFile.path);
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Image selected: ${pickedFile.name}")),
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: true, // Important for web - loads file data into memory
       );
-    } else {
+
+      if (result != null && result.files.isNotEmpty) {
+        PlatformFile file = result.files.first;
+
+        // Check file size (optional - limit to 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("File size should be less than 5MB")),
+          );
+          return;
+        }
+
+        setState(() {
+          _pickedImageBytes = file.bytes;
+          _pickedImageName = file.name;
+        });
+
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Image selected: ${file.name}")));
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("No image selected.")));
+      }
+    } catch (e) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("No image selected.")));
+      ).showSnackBar(SnackBar(content: Text("Error picking image: $e")));
     }
   }
 
@@ -257,10 +280,10 @@ class _ProfilePageState extends State<ProfilePage> {
             child: CircleAvatar(
               radius: 60,
               backgroundColor: Colors.grey[100],
-              child: _pickedImageFile != null
+              child: _pickedImageBytes != null
                   ? ClipOval(
-                      child: Image.file(
-                        _pickedImageFile!,
+                      child: Image.memory(
+                        _pickedImageBytes!,
                         width: 120,
                         height: 120,
                         fit: BoxFit.cover,

@@ -1,18 +1,28 @@
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:qless_app/bloc/booking/booking_event.dart';
 import 'package:qless_app/bloc/booking/booking_state.dart';
+import 'package:qless_app/booking_repository.dart';
 import '/models/booking.dart';
 import '/services/booking_service.dart';
 
+
 class BookingBloc extends Bloc<BookingEvent, BookingState> {
   final BookingService bookingService;
+  final BookingRepository bookingRepository;
 
-  BookingBloc({required this.bookingService})
-      : super(BookingInitial()) {
-    on<LoadBookings>(_onLoadBookings);
+  StreamSubscription<Booking>? _statusSubscription;
+
+  BookingBloc({
+    required this.bookingService,
+    required this.bookingRepository,
+  }) : super(BookingInitial()) {
+    on<LoadBookings>(_onLoadBookings);  
     on<CreateBooking>(_onCreateBooking);
     on<UpdateBookingStatus>(_onUpdateBookingStatus);
     on<LoadCustomerBookings>(_onLoadCustomerBookings);
+    on<ListenToCustomerBookingStatus>(_onListenToCustomerBookingStatus);
+    on<BookingStatusUpdated>(_onBookingStatusUpdated);
   }
 
   Future<void> _onLoadBookings(
@@ -21,8 +31,7 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
   ) async {
     emit(BookingLoading());
     try {
-      final bookings = await bookingService
-          .getBookingsByMerchant(event.merchantId);
+      final bookings = await bookingService.getBookingsByMerchant(event.merchantId);
       emit(BookingLoaded(bookings));
     } catch (e) {
       emit(BookingError('Failed to load bookings: $e'));
@@ -36,23 +45,21 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
     emit(BookingLoading());
     try {
       final createdBooking = await bookingService.createBooking(
-        merchantId:   event.merchantId,         
+        merchantId: event.merchantId,
         businessName: event.businessName,
-        serviceName:  event.serviceName,
+        serviceName: event.serviceName,
         serviceDuration: event.serviceDuration,
-        price:        event.price,
-        customerId:   event.customerId,
+        price: event.price,
+        customerId: event.customerId,
         customerName: event.customerName,
-        timeSlot:     event.timeSlot,
-        serviceType:  event.serviceType,
-      
+        timeSlot: event.timeSlot,
+        serviceType: event.serviceType,
+        customerProfileImage: null, // Assuming this is optional
+        // Assuming queue position is managed internally
       );
-
       emit(BookingCreated(createdBooking));
 
-      // then reload merchant’s list
-      final bookings = await bookingService
-          .getBookingsByMerchant(event.merchantId);
+      final bookings = await bookingService.getBookingsByMerchant(event.merchantId);
       emit(BookingLoaded(bookings));
     } catch (e) {
       emit(BookingError('Failed to create booking: $e'));
@@ -65,16 +72,14 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
   ) async {
     try {
       await bookingService.updateBookingStatus(
-         event.merchantId,
-          event.customerId,
-       event.bookingId,
-          event.status,
+        event.merchantId,
+        event.customerId,
+        event.bookingId,
+        event.status,
       );
 
-      // reload list
       if (state is BookingLoaded) {
-        final bookings = await bookingService
-            .getBookingsByMerchant(event.merchantId);
+        final bookings = await bookingService.getBookingsByMerchant(event.merchantId);
         emit(BookingLoaded(bookings));
       }
     } catch (e) {
@@ -88,11 +93,41 @@ class BookingBloc extends Bloc<BookingEvent, BookingState> {
   ) async {
     emit(BookingLoading());
     try {
-      final bookings = await bookingService
-          .getBookingsByCustomer(event.customerId);
+      final bookings = await bookingService.getBookingsByCustomer(event.customerId);
       emit(BookingLoaded(bookings));
     } catch (e) {
       emit(BookingError('Failed to load customer bookings: $e'));
     }
+  }
+
+  Future<void> _onListenToCustomerBookingStatus(
+    ListenToCustomerBookingStatus event,
+    Emitter<BookingState> emit,
+  ) async {
+    await _statusSubscription?.cancel();
+    _statusSubscription = bookingRepository
+        .listenToCustomerBookingStatus(event.customerId)
+        .listen((booking) {
+      add(BookingStatusUpdated(booking: booking));
+    });
+  }
+
+  Future<void> _onBookingStatusUpdated(
+    BookingStatusUpdated event,
+    Emitter<BookingState> emit,
+  ) async {
+    if (state is BookingLoaded) {
+      final currentBookings = (state as BookingLoaded).bookings;
+      final updatedList = currentBookings.map((b) {
+        return b.id == event.booking.id ? event.booking : b;
+      }).toList();
+      emit(BookingLoaded(updatedList));
+    }
+  }
+
+  @override
+  Future<void> close() {
+    _statusSubscription?.cancel();
+    return super.close();
   }
 }

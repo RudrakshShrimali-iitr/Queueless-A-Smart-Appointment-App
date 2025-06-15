@@ -4,12 +4,14 @@ class UpcomingBookingCard extends StatelessWidget {
   final String serviceName;
   final String salonName;
   final String bookingTime;
+  final String queuePosition;
 
   const UpcomingBookingCard({
     super.key,
     required this.serviceName,
     required this.salonName,
     required this.bookingTime,
+    this.queuePosition = '1', // Default value
   });
 
   @override
@@ -52,7 +54,7 @@ class UpcomingBookingCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '#3 in line',
+                  '#$queuePosition in line',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 12,

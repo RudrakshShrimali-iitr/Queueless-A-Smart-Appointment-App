@@ -50,3 +50,14 @@ class LoadCustomerBookings extends BookingEvent {
   final String customerId;
   LoadCustomerBookings(this.customerId);
 }
+class ListenToCustomerBookingStatus extends BookingEvent {
+  final String customerId;
+
+  ListenToCustomerBookingStatus({required this.customerId});
+}
+
+class BookingStatusUpdated extends BookingEvent {
+  final Booking booking;
+
+  BookingStatusUpdated({required this.booking});
+}
